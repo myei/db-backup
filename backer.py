@@ -330,5 +330,5 @@ class Backup:
 
 t = Terminal()
 
-Backup() if len(sys.argv) > 1 else Backup.usage()
+Backup()
 
