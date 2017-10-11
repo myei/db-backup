@@ -1,3 +1,4 @@
+import shutil
 from getpass import getpass
 from datetime import datetime
 from math import trunc
@@ -111,7 +112,8 @@ class Backup:
             'add': ['--create-pool', '-cp'],
             'ls': ['--list-pools', '-lp'],
             'rm': ['--remove-pool', '-rp'],
-            'cl': ['--clean']
+            'cl': ['--clean'],
+            'days': ['--days', '-d']
         }
     }
 
@@ -227,7 +229,7 @@ class Backup:
             print(t.bold_red('This field is required'))
             exit(2)
 
-    def cleaner(self):
+    def cleaner(self, days=5):
         pool = self._get_pool()
         databases = self.db_name.split(' ')
 
@@ -236,20 +238,18 @@ class Backup:
             backups = sp.getoutput('ls ' + path)
             backups = backups.split('\n')
 
-            if len(backups) < 6:
+            if len(backups) <= days:
                 print(t.bold_green(db + ' is clean...\n'))
                 continue
 
             ba = [datetime.strptime(x[-14:-4], '%d-%m-%Y') for x in backups]
             ba.sort()
 
-            for x in ba[:-5]:
-                actions = {
-                    'mysql': os.remove(path + db + '_' + x.strftime('%d-%m-%Y') + '.sql'),
-                    'mongodb': os.removedirs(path + db + '_' + x.strftime('%d-%m-%Y'))
-                }
-
-                actions.get(pool['engine'])
+            for x in ba[:-days]:
+                if pool['engine'] == 'mysql':
+                    os.remove(path + db + '_' + x.strftime('%d-%m-%Y') + '.sql')
+                else:
+                    os.removedirs(path + db + '_' + x.strftime('%d-%m-%Y'))
 
         print(t.bold_yellow('Databases cleaned...'))
 
@@ -268,7 +268,8 @@ class Backup:
         print("  -cp, --create-pool: Starts an interactive bash")
         print("  -lp, --list-pools: To get a list of pools")
         print("  -rp, --remove-pool: To remove a pool")
-        print("  --clean: To clean a spec database or a list (-db \"name1 name2\")")
+        print("  --clean: To clean a specified database or a list (-db \"name1 name2\")")
+        print("  -d, --days: if --clean is passed will set the last days to keep at cleaning")
         exit()
 
     def _get_args(self):
@@ -325,7 +326,7 @@ class Backup:
 
         if 'cl' in requested:
             self.db_name = requested['cl'] if self.db_name is None and 'cl' in requested else self.db_name
-            self.cleaner()
+            self.cleaner(int(requested['days']) if 'days' in requested else 5)
 
 
 t = Terminal()
