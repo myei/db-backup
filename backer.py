@@ -1,4 +1,3 @@
-import shutil
 from getpass import getpass
 from datetime import datetime
 from math import trunc
