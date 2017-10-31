@@ -69,7 +69,7 @@ class Encoder:
 
         except Exception:
             if self._debug:
-                print('That text is not encoded by me or it was built with a different alphabet')
+                print(t.bold_red('That text is not encoded by me or it was built with a different alphabet'))
 
         return self._decoded
 
