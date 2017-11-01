@@ -139,12 +139,25 @@ class Backup:
                 os.system('mkdir -p ' + db_path)
 
                 actions = {
-                    'mysql': 'mysqldump -u ' + pool['user'] + ' --password="' + pool['psw'] +
-                             '" -P ' + pool['port'] + ' --routines --opt ' + db + '>' + db_path + db + '_`date +%d-%m-%Y`.sql &>/dev/null',
+                    'mysql': 'mysqldump -h {host} -u {user} --password="{psw}" -P {port} --routines --opt {db} > '
+                             '{path}_`date +%d-%m-%Y`.sql &>/dev/null'.format(
+                                host=pool['host'],
+                                user=pool['user'],
+                                psw=pool['psw'],
+                                port=pool['port'],
+                                db=db,
+                                path=db_path + db
+                             ),
 
-                    'mongodb': 'mongodump --host ' + pool['host'] + ' --port ' + pool['port'] + ' --db ' + db +
-                               ' -u ' + pool['user'] + ' -p ' + pool['psw'] + ' --authenticationDatabase "admin" --out ' +
-                               db_path + db + '/' + db + '_`date +%d-%m-%Y` &>/dev/null'
+                    'mongodb': 'mongodump --host {host} --port {port} --db {db} -u {user} -p {psw} '
+                               '--authenticationDatabase "admin" --out {path}_`date +%d-%m-%Y` &>/dev/null'.format(
+                                    host=pool['host'],
+                                    user=pool['user'],
+                                    psw=pool['psw'],
+                                    port=pool['port'],
+                                    db=db,
+                                    path=db_path + db + '/' + db
+                                )
                 }
 
                 os.system(actions.get(pool['engine']))
