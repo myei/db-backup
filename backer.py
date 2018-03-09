@@ -98,7 +98,13 @@ class Backup:
         'engines': {
             'mysql': {
                 'port': '3306',
-                'host': 'localhost'
+                'host': 'localhost',
+                'user': 'root'
+            },
+            'postgresql': {
+                'port': '5432',
+                'host': 'localhost',
+                'user': 'postgres'
             },
             'mongodb': {
                 'port': '27017',
@@ -149,6 +155,15 @@ class Backup:
                                 path=db_path + db
                              ),
 
+                    'postgresql': 'pg_dump -h {host} -U {user} -p {port} -F c {db} > '
+                             '{path}_`date +%d-%m-%Y`.backup 2>/dev/null'.format(
+                                host=pool['host'],
+                                user=pool['user'],
+                                port=pool['port'],
+                                db=db,
+                                path=db_path + db
+                             ),
+
                     'mongodb': 'mongodump --host {host} --port {port} --db {db} -u {user} -p {psw} '
                                '--authenticationDatabase "admin" --out {path}_`date +%d-%m-%Y` &>/dev/null'.format(
                                     host=pool['host'],
@@ -160,9 +175,13 @@ class Backup:
                                 )
                 }
 
-                os.system(actions.get(pool['engine']))
+                status = os.system(actions.get(pool['engine']))
 
-                print(t.bold_green('Succefully created: ' + db + '_' + sp.getoutput('date +%d-%m-%Y')))
+                if not status:
+                    print(t.bold_green('Succefully created: ' + db + '_' + sp.getoutput('date +%d-%m-%Y')))
+                else:
+                    print(t.bold_red('Error trying to create backup for db: {}'.format(db)))
+
 
     @staticmethod
     def list():

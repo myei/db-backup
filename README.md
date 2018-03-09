@@ -1,5 +1,5 @@
 # db-backup (backer)
-Script en python para gestionar backups de varios manejadores de Base de Datos (MySQL, MongoDB *por ahora)
+Script en python para gestionar backups de varios manejadores de Base de Datos (MySQL, PostgreSQL, MongoDB *por ahora)
 
 ```
 backer usage: backer [ -ARGS ] [ VALUE ] [ -OPTIONS] 
