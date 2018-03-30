@@ -121,10 +121,11 @@ class Backup:
             'pool': ['-p', '--pool'],
             'db': ['-db', '--databases'],
             'add': ['--create-pool', '-cp'],
-            'ls': ['--list-pools', '-lp'],
+            'lp': ['--list-pools', '-lp'],
             'rm': ['--remove-pool', '-rp'],
             'cl': ['--clean'],
-            'days': ['--days', '-d']
+            'days': ['--days', '-d'],
+            'ldb': ['--list-db']
         }
     }
 
@@ -133,9 +134,6 @@ class Backup:
         self.db_name = db_name
         self.pool = {}
         self.args = {}
-
-        os.system('mkdir -p ' + self.pool_path)
-
         self.args_builder()
 
     def make(self):
@@ -166,17 +164,19 @@ class Backup:
 
     @staticmethod
     def list():
-        os.system('mkdir -p ' + Backup.pool_path)
-
         if sp.getoutput(['ls ' + Backup.pool_path + ' | cut -f 1 -d "." | sort | wc -l']) == '0':
             print(t.bold_yellow('There is no pools yet...'))
         else:
             print(t.bold_green(sp.getoutput(['ls ' + Backup.pool_path + ' | grep .pkl | cut -f 1 -d "." | sort'])))
 
+    def list_db(self):
+        if sp.getoutput(['ls {}{} | cut -f 1 -d "." | sort | wc -l'.format(self.pool_path, self.pool_name)]) == '0':
+            print(t.bold_yellow('There is no pools yet...'))
+        else:
+            print(t.bold_green(sp.getoutput(['ls {}{} | sort'.format(self.pool_path, self.pool_name)])))
+
     @staticmethod
     def create_pool():
-        os.system('mkdir -p ' + Backup.pool_path)
-
         try:
             pool = {}
             print(t.bold_cyan('Please add your new pool info: \n'))
@@ -280,6 +280,7 @@ class Backup:
         print("  -cp, --create-pool: Starts an interactive bash")
         print("  -lp, --list-pools: To get a list of pools")
         print("  -rp, --remove-pool: To remove a pool")
+        print("  --list-db: List pool databases when used with --pool")
         print("  --clean: To clean a specified database or a list (-db \"name1 name2\")")
         print("  -d, --days: if --clean is passed will set the last days to keep at cleaning")
         exit()
@@ -315,6 +316,7 @@ class Backup:
         return self.args
 
     def args_builder(self):
+        os.system('mkdir -p ' + self.pool_path)
         requested = self._get_args()
 
         self.pool_name = requested['pool'] if 'pool' in requested else None
@@ -335,6 +337,9 @@ class Backup:
                 self.make()
             else:
                 self.usage()
+
+        if 'pool' in requested and 'ldb' in requested:
+            self.list_db()
 
         if 'cl' in requested:
             self.db_name = requested['cl'] if self.db_name is None and 'cl' in requested else self.db_name
