@@ -101,8 +101,8 @@ class Backup:
                 'host': 'localhost',
                 'user': 'root',
                 'backup': 'mysqldump -h {host} -u {user} --password="{psw}" -P {port} --routines --opt {db} > '
-                          '{path}{db}_`date +%d-%m-%YT%H:%M:%S`.backup &>/dev/null',
-                'restore': 'mysql -h {host} -u {user} --password="{psw}" -P {port} {db} < {backup}'
+                          '{path}{db}_`date +%d-%m-%YT%H:%M:%S`.backup 2>/dev/null',
+                'restore': 'mysql -h {host} -u {user} --password="{psw}" -P {port} {db} < {backup} 2>/dev/null'
             },
             'postgresql': {
                 'port': '5432',
@@ -110,14 +110,15 @@ class Backup:
                 'user': 'postgres',
                 'backup': 'pg_dump -h {host} -U {user} -p {port} -F c {db} '
                           '> {path}{db}_`date +%d-%m-%YT%H:%M:%S`.backup 2>/dev/null',
-                'restore': ''
+                'restore': 'pg_restore -h {host} -U {user} -p {port} -F c -d {db} --clean {backup} 2>/dev/null'
             },
             'mongodb': {
                 'port': '27017',
                 'host': 'localhost',
                 'backup': 'mongodump --host {host} --port {port} --db {db} -u {user} -p {psw} --authenticationDatabase '
-                          '"admin" --out {path}{db}/{db}_`date +%d-%m-%YT%H:%M:%S`.backup &>/dev/null',
-                'restore': ''
+                          '"admin" --out {path}{db}/{db}_`date +%d-%m-%YT%H:%M:%S`.backup 2>/dev/null',
+                'restore': 'mongorestore --host {host} --port {port} --db {db} --user superman --authenticationDatabase'
+                           ' "admin" {backup}"'
             },
         },
         'args': {
@@ -193,7 +194,7 @@ class Backup:
             print(t.bold_yellow('There is no backups yet...'))
         else:
             backups = sp.getoutput(['ls {}{}/{} | sort | nl'.format(self.pool_path, self.pool_name, self.db_name)])
-            print(t.bold_cyan(backups))
+            print(t.bold_cyan('\n{}'.format(backups)))
 
             return [i.split('\t')[1] for i in backups.split('\n')]
 
@@ -264,6 +265,8 @@ class Backup:
         else:
             _choice = '{}{}/{}/{}'.format(self.pool_path, self.pool_name, self.db_name, backs[choice - 1])
 
+        print(t.bold_cyan('Restoring....'))
+
         bad = os.system(self.defs['engines'][self.pool['engine']]['restore'].format(db=self.db_name,
                                                                                     backup=_choice,
                                                                                     **self.pool))
@@ -295,7 +298,6 @@ class Backup:
                 print(t.bold_green(db + ' is clean...\n'))
                 continue
 
-            print(backups[0][-26:-7])
             ba = [datetime.strptime(x[-26:-7], '%d-%m-%YT%H:%M:%S') for x in backups]
             ba.sort()
 
