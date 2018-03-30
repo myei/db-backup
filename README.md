@@ -23,6 +23,8 @@ pools usage: backer [ -OPTIONS ]
   -lp, --list-pools: To get a list of pools
   -rp, --remove-pool: To remove a pool
   --list-db: List pool databases when used with --pool
+  --list-backups: List database backups when used with -p and -db
   --clean: To clean a specified database or a list (-db "name1 name2")
+  --restore: Interactive shell for restoring database when used with -p and -db
   -d, --days: if --clean is passed will set the last days to keep at cleaning
 ```

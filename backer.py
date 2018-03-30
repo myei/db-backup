@@ -101,20 +101,23 @@ class Backup:
                 'host': 'localhost',
                 'user': 'root',
                 'backup': 'mysqldump -h {host} -u {user} --password="{psw}" -P {port} --routines --opt {db} > '
-                          '{path}{db}_`date +%d-%m-%Y`.sql &>/dev/null'
+                          '{path}{db}_`date +%d-%m-%YT%H:%M:%S`.backup &>/dev/null',
+                'restore': 'mysql -h {host} -u {user} --password="{psw}" -P {port} {db} < {backup}'
             },
             'postgresql': {
                 'port': '5432',
                 'host': 'localhost',
                 'user': 'postgres',
                 'backup': 'pg_dump -h {host} -U {user} -p {port} -F c {db} '
-                          '> {path}{db}_`date +%d-%m-%Y`.backup 2>/dev/null'
+                          '> {path}{db}_`date +%d-%m-%YT%H:%M:%S`.backup 2>/dev/null',
+                'restore': ''
             },
             'mongodb': {
                 'port': '27017',
                 'host': 'localhost',
-                'backup': 'mongodump --host {host} --port {port} --db {db} -u {user} -p {psw} '
-                          '--authenticationDatabase "admin" --out {path}{db}/{db}_`date +%d-%m-%Y` &>/dev/null'
+                'backup': 'mongodump --host {host} --port {port} --db {db} -u {user} -p {psw} --authenticationDatabase '
+                          '"admin" --out {path}{db}/{db}_`date +%d-%m-%YT%H:%M:%S`.backup &>/dev/null',
+                'restore': ''
             },
         },
         'args': {
@@ -125,16 +128,25 @@ class Backup:
             'rm': ['--remove-pool', '-rp'],
             'cl': ['--clean'],
             'days': ['--days', '-d'],
-            'ldb': ['--list-db']
+            'ldb': ['--list-db'],
+            'lb': ['--list-backups'],
+            'res': ['--restore']
         }
     }
 
     def __init__(self, pool=None, db_name=None):
+        self.build_context()
+
         self.pool_name = pool
         self.db_name = db_name
         self.pool = {}
         self.args = {}
         self.args_builder()
+
+    def build_context(self):
+        if os.system('mkdir -p {} &>/dev/null'.format(self.pool_path)):
+            print(t.bold_red('Permission denied'))
+            exit(2)
 
     def make(self):
         if self._get_pool() is None or self.db_name is None:
@@ -149,31 +161,41 @@ class Backup:
                 os.system('mkdir -p ' + db_path)
 
                 status = os.system(self.defs['engines'][pool['engine']]['backup'].format(
-                                host=pool['host'],
-                                user=pool['user'],
-                                psw=pool['psw'],
-                                port=pool['port'],
-                                db=db,
-                                path=db_path
-                             ))
+                    host=pool['host'],
+                    user=pool['user'],
+                    psw=pool['psw'],
+                    port=pool['port'],
+                    db=db,
+                    path=db_path
+                ))
 
                 if not status:
-                    print(t.bold_green('Succefully created: ' + db + '_' + sp.getoutput('date +%d-%m-%Y')))
+                    print(t.bold_green('Succefully created: ' + db + '_' + sp.getoutput('date +%d-%m-%YT%H:%M:%S')))
                 else:
+                    os.remove('{}{}_{}.backup'.format(db_path, db, sp.getoutput('date +%d-%m-%YT%H:%M:%S')))
                     print(t.bold_red('Error trying to create backup for db: {}'.format(db)))
 
     @staticmethod
-    def list():
+    def list_pool():
         if sp.getoutput(['ls ' + Backup.pool_path + ' | cut -f 1 -d "." | sort | wc -l']) == '0':
             print(t.bold_yellow('There is no pools yet...'))
         else:
             print(t.bold_green(sp.getoutput(['ls ' + Backup.pool_path + ' | grep .pkl | cut -f 1 -d "." | sort'])))
 
     def list_db(self):
-        if sp.getoutput(['ls {}{} | cut -f 1 -d "." | sort | wc -l'.format(self.pool_path, self.pool_name)]) == '0':
-            print(t.bold_yellow('There is no pools yet...'))
+        if sp.getoutput(['ls {}{} | wc -l'.format(self.pool_path, self.pool_name)]) == '0':
+            print(t.bold_yellow('There is no databases in this pool yet...'))
         else:
-            print(t.bold_green(sp.getoutput(['ls {}{} | sort'.format(self.pool_path, self.pool_name)])))
+            print(t.bold_blue(sp.getoutput(['ls {}{} | sort'.format(self.pool_path, self.pool_name)])))
+
+    def list_backs(self):
+        if sp.getoutput(['ls {}{}{} | sort | wc -l'.format(self.pool_path, self.pool_name, self.db_name)]) == '0':
+            print(t.bold_yellow('There is no backups yet...'))
+        else:
+            backups = sp.getoutput(['ls {}{}/{} | sort | nl'.format(self.pool_path, self.pool_name, self.db_name)])
+            print(t.bold_cyan(backups))
+
+            return [i.split('\t')[1] for i in backups.split('\n')]
 
     @staticmethod
     def create_pool():
@@ -215,7 +237,7 @@ class Backup:
             self.pool = pickle.load(open(self.pool_path + self.pool_name + '.pkl', 'rb'))
             self.pool = enc.json_decode(self.pool)
 
-        except Exception:
+        except Exception as e:
             print(t.bold_red('There is no pool named: ' + self.pool_name + ', please add it'))
             exit(2)
 
@@ -230,6 +252,25 @@ class Backup:
             os.system('rm -r ' + self.pool_path + self.pool_name)
 
             print(t.bold_green('Succefully removed: ' + self.pool_name))
+
+    def restore(self):
+        backs = self.list_backs()
+        print(t.bold_blue('     {}\tOther...'.format(len(backs) + 1)))
+
+        choice = int(input(t.bold_yellow('\nMake your choice [{}]: '.format(len(backs)))) or len(backs))
+
+        if choice > len(backs):
+            _choice = input(t.bold_yellow('\nType backup full path: '))
+        else:
+            _choice = '{}{}/{}/{}'.format(self.pool_path, self.pool_name, self.db_name, backs[choice - 1])
+
+        bad = os.system(self.defs['engines'][self.pool['engine']]['restore'].format(db=self.db_name,
+                                                                                    backup=_choice,
+                                                                                    **self.pool))
+        if not bad:
+            print(t.bold_green('\nSuccessfully restored: ' + _choice.split('/')[-1]))
+        else:
+            print(t.bold_red('Something wrong trying to restore'))
 
     @staticmethod
     def validate(_in, default=None):
@@ -254,14 +295,16 @@ class Backup:
                 print(t.bold_green(db + ' is clean...\n'))
                 continue
 
-            ba = [datetime.strptime(x[-14:-4], '%d-%m-%Y') for x in backups]
+            print(backups[0][-26:-7])
+            ba = [datetime.strptime(x[-26:-7], '%d-%m-%YT%H:%M:%S') for x in backups]
             ba.sort()
 
             for x in ba[:-days]:
-                if pool['engine'] == 'mysql':
-                    os.remove(path + db + '_' + x.strftime('%d-%m-%Y') + '.sql')
+                target = '{}{}_{}.backup'.format(path, db, x.strftime('%d-%m-%YT%H:%M:%S'))
+                if pool['engine'] != 'mongodb':
+                    os.remove(target)
                 else:
-                    os.removedirs(path + db + '_' + x.strftime('%d-%m-%Y'))
+                    os.removedirs(target)
 
         print(t.bold_yellow('Databases cleaned...'))
 
@@ -281,7 +324,9 @@ class Backup:
         print("  -lp, --list-pools: To get a list of pools")
         print("  -rp, --remove-pool: To remove a pool")
         print("  --list-db: List pool databases when used with --pool")
+        print("  --list-backups: List database backups when used with -p and -db")
         print("  --clean: To clean a specified database or a list (-db \"name1 name2\")")
+        print("  --restore: Interactive shell for restoring database when used with -p and -db")
         print("  -d, --days: if --clean is passed will set the last days to keep at cleaning")
         exit()
 
@@ -316,7 +361,6 @@ class Backup:
         return self.args
 
     def args_builder(self):
-        os.system('mkdir -p ' + self.pool_path)
         requested = self._get_args()
 
         self.pool_name = requested['pool'] if 'pool' in requested else None
@@ -325,8 +369,8 @@ class Backup:
         if 'add' in requested:
             self.create_pool()
 
-        if 'ls' in requested:
-            self.list()
+        if 'lp' in requested:
+            self.list_pool()
 
         if 'rm' in requested:
             self.pool_name = requested['rm'] if self.pool_name is None and 'rm' in requested else self.pool_name
@@ -337,6 +381,12 @@ class Backup:
                 self.make()
             else:
                 self.usage()
+
+            if 'lb' in requested:
+                self.list_backs()
+
+            if 'res' in requested:
+                self.restore()
 
         if 'pool' in requested and 'ldb' in requested:
             self.list_db()
