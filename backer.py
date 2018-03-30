@@ -99,16 +99,22 @@ class Backup:
             'mysql': {
                 'port': '3306',
                 'host': 'localhost',
-                'user': 'root'
+                'user': 'root',
+                'backup': 'mysqldump -h {host} -u {user} --password="{psw}" -P {port} --routines --opt {db} > '
+                          '{path}{db}_`date +%d-%m-%Y`.sql &>/dev/null'
             },
             'postgresql': {
                 'port': '5432',
                 'host': 'localhost',
-                'user': 'postgres'
+                'user': 'postgres',
+                'backup': 'pg_dump -h {host} -U {user} -p {port} -F c {db} '
+                          '> {path}{db}_`date +%d-%m-%Y`.backup 2>/dev/null'
             },
             'mongodb': {
                 'port': '27017',
-                'host': 'localhost'
+                'host': 'localhost',
+                'backup': 'mongodump --host {host} --port {port} --db {db} -u {user} -p {psw} '
+                          '--authenticationDatabase "admin" --out {path}{db}/{db}_`date +%d-%m-%Y` &>/dev/null'
             },
         },
         'args': {
@@ -128,60 +134,35 @@ class Backup:
         self.pool = {}
         self.args = {}
 
-        os.system('mkdir -p ' + Backup.pool_path)
+        os.system('mkdir -p ' + self.pool_path)
 
         self.args_builder()
 
     def make(self):
         if self._get_pool() is None or self.db_name is None:
-            Backup.usage()
+            self.usage()
 
         pool = self._get_pool()
         dbs = self.db_name.split(' ')
 
         if bool(pool):
             for db in dbs:
-                db_path = Backup.pool_path + pool['name'] + '/' + db + '/'
+                db_path = self.pool_path + pool['name'] + '/' + db + '/'
                 os.system('mkdir -p ' + db_path)
 
-                actions = {
-                    'mysql': 'mysqldump -h {host} -u {user} --password="{psw}" -P {port} --routines --opt {db} > '
-                             '{path}_`date +%d-%m-%Y`.sql &>/dev/null'.format(
+                status = os.system(self.defs['engines'][pool['engine']]['backup'].format(
                                 host=pool['host'],
                                 user=pool['user'],
                                 psw=pool['psw'],
                                 port=pool['port'],
                                 db=db,
-                                path=db_path + db
-                             ),
-
-                    'postgresql': 'pg_dump -h {host} -U {user} -p {port} -F c {db} > '
-                             '{path}_`date +%d-%m-%Y`.backup 2>/dev/null'.format(
-                                host=pool['host'],
-                                user=pool['user'],
-                                port=pool['port'],
-                                db=db,
-                                path=db_path + db
-                             ),
-
-                    'mongodb': 'mongodump --host {host} --port {port} --db {db} -u {user} -p {psw} '
-                               '--authenticationDatabase "admin" --out {path}_`date +%d-%m-%Y` &>/dev/null'.format(
-                                    host=pool['host'],
-                                    user=pool['user'],
-                                    psw=pool['psw'],
-                                    port=pool['port'],
-                                    db=db,
-                                    path=db_path + db + '/' + db
-                                )
-                }
-
-                status = os.system(actions.get(pool['engine']))
+                                path=db_path
+                             ))
 
                 if not status:
                     print(t.bold_green('Succefully created: ' + db + '_' + sp.getoutput('date +%d-%m-%Y')))
                 else:
                     print(t.bold_red('Error trying to create backup for db: {}'.format(db)))
-
 
     @staticmethod
     def list():
@@ -231,7 +212,7 @@ class Backup:
             enc = Encoder()
             self.pool_name = str(self.pool_name)
 
-            self.pool = pickle.load(open(Backup.pool_path + self.pool_name + '.pkl', 'rb'))
+            self.pool = pickle.load(open(self.pool_path + self.pool_name + '.pkl', 'rb'))
             self.pool = enc.json_decode(self.pool)
 
         except Exception:
@@ -242,11 +223,11 @@ class Backup:
 
     def remove_pool(self):
         if self.pool_name is None:
-            Backup.usage()
+            self.usage()
 
         if bool(self._get_pool()):
-            os.system('rm ' + Backup.pool_path + self.pool_name + '.pkl')
-            os.system('rm -r ' + Backup.pool_path + self.pool_name)
+            os.system('rm ' + self.pool_path + self.pool_name + '.pkl')
+            os.system('rm -r ' + self.pool_path + self.pool_name)
 
             print(t.bold_green('Succefully removed: ' + self.pool_name))
 
@@ -265,7 +246,7 @@ class Backup:
         databases = self.db_name.split(' ')
 
         for db in databases:
-            path = Backup.pool_path + self.pool_name + '/' + db + '/'
+            path = self.pool_path + self.pool_name + '/' + db + '/'
             backups = sp.getoutput('ls ' + path)
             backups = backups.split('\n')
 
@@ -318,7 +299,7 @@ class Backup:
 
             requests = [ii for ii in args.keys()]
             for ii in requests:
-                found = ([i for i in Backup.defs['args'] if ii in Backup.defs['args'][i]])
+                found = ([i for i in self.defs['args'] if ii in self.defs['args'][i]])
 
                 if len(found) == 0:
                     continue
@@ -326,7 +307,7 @@ class Backup:
                 self.args[found[0]] = args[ii]
 
             if not bool(self.args):
-                Backup.usage()
+                self.usage()
 
         except Exception:
             pass
@@ -340,10 +321,10 @@ class Backup:
         self.db_name = requested['db'] if 'db' in requested else None
 
         if 'add' in requested:
-            Backup.create_pool()
+            self.create_pool()
 
         if 'ls' in requested:
-            Backup.list()
+            self.list()
 
         if 'rm' in requested:
             self.pool_name = requested['rm'] if self.pool_name is None and 'rm' in requested else self.pool_name
@@ -353,7 +334,7 @@ class Backup:
             if 'pool' in requested:
                 self.make()
             else:
-                Backup.usage()
+                self.usage()
 
         if 'cl' in requested:
             self.db_name = requested['cl'] if self.db_name is None and 'cl' in requested else self.db_name
