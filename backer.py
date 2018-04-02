@@ -115,10 +115,10 @@ class Backup:
             'mongodb': {
                 'port': '27017',
                 'host': 'localhost',
-                'backup': 'mongodump --host {host} --port {port} --db {db} -u {user} -p {psw} --authenticationDatabase '
-                          '"admin" --out {path}{db}/{db}_`date +%d-%m-%YT%H:%M:%S`.backup 2>/dev/null',
-                'restore': 'mongorestore --host {host} --port {port} --db {db} --user superman --authenticationDatabase'
-                           ' "admin" {backup}"'
+                'backup': 'mongodump -h {host} --port {port} -d {db} -u {user} -p {psw} --gzip --authenticationDatabase'
+                          ' "admin" --out {path}{db}_`date +%d-%m-%YT%H:%M:%S`.backup 2>/dev/null',
+                'restore': 'mongorestore -h {host} --port {port} -d {db} -u {user} -p {psw} --drop --gzip '
+                           '--authenticationDatabase "admin" {backup}/{db}" 2>/dev/null'
             },
         },
         'args': {
