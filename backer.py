@@ -108,9 +108,10 @@ class Backup:
                 'port': '5432',
                 'host': 'localhost',
                 'user': 'postgres',
-                'backup': 'pg_dump -h {host} -U {user} -p {port} -F c {db} '
+                'backup': 'PGPASSWORD={psw} pg_dump -h {host} -U {user} -p {port} -F c {db} '
                           '> {path}{db}_`date +%d-%m-%YT%H:%M:%S`.backup 2>/dev/null',
-                'restore': 'pg_restore -h {host} -U {user} -p {port} -F c -d {db} --clean {backup} 2>/dev/null'
+                'restore': 'PGPASSWORD={psw} pg_restore -h {host} -U {user} -p {port} -F c -d {db} --clean '
+                           '{backup} 2>/dev/null'
             },
             'mongodb': {
                 'port': '27017',
