@@ -177,7 +177,10 @@ class Backup:
                 else:
                     print(t.red('Error trying to create backup for db: {}'.format(db)))
                     target = '{}{}_{}.backup'.format(db_path, db, sp.getoutput('date +%d-%m-%YT%H:%M:%S'))
-                    if os.path.isdir(target) or os.path.isfile(target):
+                    if os.path.isdir(target):
+                        rmtree(target)
+
+                    if os.path.isfile(target):
                         os.remove(target)
 
     @staticmethod
