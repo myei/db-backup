@@ -5,6 +5,7 @@ from string import printable
 from textwrap import wrap
 from uuid import uuid4
 from blessings import Terminal
+from shutil import rmtree
 
 import pickle
 import os
@@ -307,7 +308,7 @@ class Backup:
                 if pool['engine'] != 'mongodb':
                     os.remove(target)
                 else:
-                    os.removedirs(target)
+                    rmtree(target)
 
         print(t.bold_yellow('Databases cleaned...'))
 
