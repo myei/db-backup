@@ -95,6 +95,10 @@ class Backup:
 
     pool_path = '/var/backer-db/'
 
+    _log_path = '/var/log/backer-error.log'
+
+    _log_errors = ' 2>>{}'.format(_log_path)
+
     defs = {
         'engines': {
             'mysql': {
@@ -102,25 +106,31 @@ class Backup:
                 'host': 'localhost',
                 'user': 'root',
                 'backup': 'mysqldump -h {host} -u {user} --password="{psw}" -P {port} --routines --opt {db} > '
-                          '{path}{db}_`date +%d-%m-%YT%H:%M:%S`.backup 2>/dev/null',
-                'restore': 'mysql -h {host} -u {user} --password="{psw}" -P {port} {db} < {backup} 2>/dev/null'
+                          '{path}{db}_`date +%d-%m-%YT%H:%M:%S`.backup' + _log_errors,
+                'restore': 'mysql -h {host} -u {user} --password="{psw}" -P {port} {db} < {backup}' + _log_errors,
+                'get_db': 'echo "show databases;" | MYSQL_PWD={psw} mysql -h {host} -u {user} -P {port} |'
+                          ' grep -Ev "Database|information_schema|performance_schema|sys|mysql"' + _log_errors
             },
             'postgresql': {
                 'port': '5432',
                 'host': 'localhost',
                 'user': 'postgres',
                 'backup': 'PGPASSWORD={psw} pg_dump -h {host} -U {user} -p {port} -F c {db} '
-                          '> {path}{db}_`date +%d-%m-%YT%H:%M:%S`.backup 2>/dev/null',
-                'restore': 'PGPASSWORD={psw} pg_restore -h {host} -U {user} -p {port} -F c -d {db} --clean '
-                           '{backup} 2>/dev/null'
+                          '> {path}{db}_`date +%d-%m-%YT%H:%M:%S`.backup' + _log_errors,
+                'restore': 'PGPASSWORD={psw} pg_restore -h {host} -p {port} -U {user} -F c -d {db} --clean '
+                           '{backup}' + _log_errors,
+                'get_db': 'PGPASSWORD={psw} psql -h {host} -p {port} -U {user} -d postgres -t -A -c'
+                          ' "SELECT datname FROM pg_database" | grep -Ev "template|postgres"' + _log_errors
             },
             'mongodb': {
                 'port': '27017',
                 'host': 'localhost',
                 'backup': 'mongodump -h {host} --port {port} -d {db} -u {user} -p {psw} --gzip --authenticationDatabase'
-                          ' "admin" --out {path}{db}_`date +%d-%m-%YT%H:%M:%S`.backup 2>/dev/null',
+                          ' "admin" --out {path}{db}_`date +%d-%m-%YT%H:%M:%S`.backup' + _log_errors,
                 'restore': 'mongorestore -h {host} --port {port} -d {db} -u {user} -p {psw} --drop --gzip '
-                           '--authenticationDatabase "admin" {backup}/{db}" 2>/dev/null'
+                           '--authenticationDatabase "admin" {backup}/{db}"' + _log_errors,
+                'get_db': 'echo "show databases;" | mongo --host {host} --port {port} -u {user} -p {psw}'
+                          ' --authenticationDatabase admin | grep GB | grep -Ev "admin|local|config"' + _log_errors
             },
         },
         'args': {
@@ -133,7 +143,8 @@ class Backup:
             'days': ['--days', '-d'],
             'ldb': ['--list-db'],
             'lb': ['--list-backups'],
-            'res': ['--restore']
+            'res': ['--restore'],
+            'all': ['--all']
         }
     }
 
@@ -147,35 +158,37 @@ class Backup:
         self.args_builder()
 
     def build_context(self):
-        if os.system('mkdir -p {} &>/dev/null'.format(self.pool_path)):
-            print(t.red('Permission denied'))
+        if os.system('mkdir -p {} 2>/dev/null'.format(self.pool_path)) or \
+           os.system('touch {} 2>/dev/null'.format(self._log_path)):
+            print(t.red('Permission denied, please run this program as superuser'))
             exit(2)
 
-    def make(self):
-        if self._get_pool() is None or self.db_name is None:
+    def get_databases(self):
+        if self._get_pool() is None:
             self.usage()
 
         pool = self._get_pool()
-        dbs = self.db_name.split(' ')
+
+        return sp.getoutput([self.defs['engines'][pool['engine']]['get_db'].format(**pool)]).split('\n')
+
+    def make(self, _all=False):
+        if self._get_pool() is None or (self.db_name is None and not _all):
+            self.usage()
+
+        pool = self._get_pool()
+        dbs = self.get_databases() if _all else self.db_name.split(' ')
 
         if bool(pool):
             for db in dbs:
                 db_path = self.pool_path + pool['name'] + '/' + db + '/'
                 os.system('mkdir -p ' + db_path)
 
-                status = os.system(self.defs['engines'][pool['engine']]['backup'].format(
-                    host=pool['host'],
-                    user=pool['user'],
-                    psw=pool['psw'],
-                    port=pool['port'],
-                    db=db,
-                    path=db_path
-                ))
+                status = os.system(self.defs['engines'][pool['engine']]['backup'].format(db=db, path=db_path, **pool))
 
                 if not status:
                     print(t.green('Successfully created backup for database:'), t.italic_green(db))
                 else:
-                    print(t.red('Error trying to create backup for db: {}'.format(db)))
+                    print(t.red('Error trying to create backup for db: {}, check logs on {}'.format(db, self._log_path)))
                     target = '{}{}_{}.backup'.format(db_path, db, sp.getoutput('date +%d-%m-%YT%H:%M:%S'))
                     if os.path.isdir(target):
                         rmtree(target)
@@ -280,7 +293,7 @@ class Backup:
         if not bad:
             print(t.green('\nSuccessfully restored: ' + _choice.split('/')[-1]))
         else:
-            print(t.red('Something wrong trying to restore'))
+            print(t.red('Something wrong trying to restore, check logs on {}'.format(self._log_path)))
 
     @staticmethod
     def validate(_in, default=None):
@@ -386,9 +399,9 @@ class Backup:
             self.pool_name = requested['rm'] if self.pool_name is None and 'rm' in requested else self.pool_name
             self.remove_pool()
 
-        if 'db' in requested:
+        if 'db' in requested or 'all' in requested:
             if 'pool' in requested:
-                self.make()
+                self.make('all' in requested)
             else:
                 self.usage()
 
