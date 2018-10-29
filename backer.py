@@ -108,18 +108,18 @@ class Backup:
                 'backup': 'mysqldump -h {host} -u {user} --password="{psw}" -P {port} --routines --opt {db} > '
                           '{path}{db}_`date +%d-%m-%YT%H:%M:%S`.backup' + _log_errors,
                 'restore': 'mysql -h {host} -u {user} --password="{psw}" -P {port} {db} < {backup}' + _log_errors,
-                'get_db': 'echo "show databases;" | MYSQL_PWD={psw} mysql -h {host} -u {user} -P {port} |'
+                'get_db': 'echo "show databases;" | MYSQL_PWD="{psw}" mysql -h {host} -u {user} -P {port} |'
                           ' grep -Ev "Database|information_schema|performance_schema|sys|mysql"' + _log_errors
             },
             'postgresql': {
                 'port': '5432',
                 'host': 'localhost',
                 'user': 'postgres',
-                'backup': 'PGPASSWORD={psw} pg_dump -h {host} -U {user} -p {port} -F c {db} '
+                'backup': 'PGPASSWORD="{psw}" pg_dump -h {host} -U {user} -p {port} -F c {db} '
                           '> {path}{db}_`date +%d-%m-%YT%H:%M:%S`.backup' + _log_errors,
-                'restore': 'PGPASSWORD={psw} pg_restore -h {host} -p {port} -U {user} -F c -d {db} --clean '
+                'restore': 'PGPASSWORD="{psw}" pg_restore -h {host} -p {port} -U {user} -F c -d {db} --clean '
                            '{backup}' + _log_errors,
-                'get_db': 'PGPASSWORD={psw} psql -h {host} -p {port} -U {user} -d postgres -t -A -c'
+                'get_db': 'PGPASSWORD="{psw}" psql -h {host} -p {port} -U {user} -d postgres -t -A -c'
                           ' "SELECT datname FROM pg_database" | grep -Ev "template|postgres"' + _log_errors
             },
             'mongodb': {
@@ -305,9 +305,9 @@ class Backup:
             print(t.red('This field is required'))
             exit(2)
 
-    def cleaner(self, days=5):
+    def cleaner(self, days=5, _all=False):
         pool = self._get_pool()
-        databases = self.db_name.split(' ')
+        databases = self.get_databases() if _all else self.db_name.split(' ')
 
         print()
         for db in databases:
@@ -351,6 +351,7 @@ class Backup:
         print("  --clean: To clean a specified database or a list (-db \"name1 name2\")")
         print("  --restore: Interactive shell for restoring database when used with -p and -db")
         print("  -d, --days: if --clean is passed will set the last days to keep at cleaning")
+        print("  --all: with this -db it's not needed, will cover all databases for user")
         exit()
 
     def _get_args(self):
@@ -399,9 +400,9 @@ class Backup:
             self.pool_name = requested['rm'] if self.pool_name is None and 'rm' in requested else self.pool_name
             self.remove_pool()
 
-        if 'db' in requested or 'all' in requested:
+        if 'db' in requested or '--all' in sys.argv:
             if 'pool' in requested:
-                self.make('all' in requested)
+                self.make('--all' in sys.argv)
             else:
                 self.usage()
 
@@ -414,9 +415,9 @@ class Backup:
         if 'pool' in requested and 'ldb' in requested:
             self.list_db()
 
-        if 'cl' in requested:
+        if '--clean' in sys.argv:
             self.db_name = requested['cl'] if self.db_name is None and 'cl' in requested else self.db_name
-            self.cleaner(int(requested['days']) if 'days' in requested else 5)
+            self.cleaner(int(requested['days']) if 'days' in requested else 5, '--all' in sys.argv)
 
 
 t = Terminal()
