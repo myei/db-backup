@@ -6,11 +6,11 @@ from textwrap import wrap
 from uuid import uuid4
 from blessings import Terminal
 from shutil import rmtree
+from subprocess import getoutput as go
 
 import pickle
 import os
 import sys
-import subprocess as sp
 
 
 class Encoder:
@@ -169,7 +169,7 @@ class Backup:
 
         pool = self._get_pool()
 
-        return sp.getoutput([self.defs['engines'][pool['engine']]['get_db'].format(**pool)]).split('\n')
+        return [i.split(' ')[0] for i in go([self.defs['engines'][pool['engine']]['get_db'].format(**pool)]).split('\n')]
 
     def make(self, _all=False):
         if self._get_pool() is None or (self.db_name is None and not _all):
@@ -189,7 +189,7 @@ class Backup:
                     print(t.green('Successfully created backup for database:'), t.italic_green(db))
                 else:
                     print(t.red('Error trying to create backup for db: {}, check logs on {}'.format(db, self._log_path)))
-                    target = '{}{}_{}.backup'.format(db_path, db, sp.getoutput('date +%d-%m-%YT%H:%M:%S'))
+                    target = '{}{}_{}.backup'.format(db_path, db, go('date +%d-%m-%YT%H:%M:%S'))
                     if os.path.isdir(target):
                         rmtree(target)
 
@@ -198,22 +198,22 @@ class Backup:
 
     @staticmethod
     def list_pool():
-        if sp.getoutput(['ls ' + Backup.pool_path + ' | cut -f 1 -d "." | sort | wc -l']) == '0':
+        if go(['ls ' + Backup.pool_path + ' | cut -f 1 -d "." | sort | wc -l']) == '0':
             print(t.italic_yellow('There is no pools yet...'))
         else:
-            print(t.blue(sp.getoutput(['ls ' + Backup.pool_path + ' | grep .pkl | cut -f 1 -d "." | sort'])))
+            print(t.blue(go(['ls ' + Backup.pool_path + ' | grep .pkl | cut -f 1 -d "." | sort'])))
 
     def list_db(self):
-        if sp.getoutput(['ls {}{} | wc -l'.format(self.pool_path, self.pool_name)]) == '0':
+        if go(['ls {}{} | wc -l'.format(self.pool_path, self.pool_name)]) == '0':
             print(t.italic_yellow('There is no databases in this pool yet...'))
         else:
-            print(t.blue(sp.getoutput(['ls {}{} | sort'.format(self.pool_path, self.pool_name)])))
+            print(t.blue(go(['ls {}{} | sort'.format(self.pool_path, self.pool_name)])))
 
     def list_backs(self):
-        if sp.getoutput(['ls {}{}{} | sort | wc -l'.format(self.pool_path, self.pool_name, self.db_name)]) == '0':
+        if go(['ls {}{}{} | sort | wc -l'.format(self.pool_path, self.pool_name, self.db_name)]) == '0':
             print(t.italic_yellow('There is no backups yet...'))
         else:
-            backups = sp.getoutput(['ls {}{}/{} | sort | nl'.format(self.pool_path, self.pool_name, self.db_name)])
+            backups = go(['ls {}{}/{} | sort | nl'.format(self.pool_path, self.pool_name, self.db_name)])
             print(t.cyan('\n{}'.format(backups)))
 
             return [i.split('\t')[1] for i in backups.split('\n')]
@@ -312,7 +312,7 @@ class Backup:
         print()
         for db in databases:
             path = self.pool_path + self.pool_name + '/' + db + '/'
-            backups = sp.getoutput('ls ' + path)
+            backups = go('ls ' + path)
             backups = backups.split('\n')
 
             if len(backups) <= days:
