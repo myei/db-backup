@@ -1,30 +1,32 @@
 # db-backup (backer)
-Script en python para gestionar backups y restore de varios manejadores de Base de Datos (MySQL, PostgreSQL, MongoDB *por ahora)
+Script en python para gestionar backups y restore con auto-limpieza parametrizable de varios manejadores de Base de Datos (MySQL, PostgreSQL, MongoDB *por ahora)
 
 ```
-backer usage: backer [ -ARGS ] [ VALUE ] [ -OPTIONS] 
+usage: backer [-h] [-cp | -lp | -rp POOL] [-p NAME] [-db name [name ...] | -a]
+              [-c] [-d DAYS] [--list-backups] [--list-db] [-r]
 
-              backer -p pool -db db 
+This script handles backup/restore/auto-cleaning for multiple database engines
 
-              backer -p pool -db "db1 db2" 
+optional arguments:
+  -h, --help            show this help message and exit
 
-              backer -p pool -db "db1 db2" --clean (for making and auto cleaning) 
-              
-              backer -p pool -db "db1 db2" --days n --clean
+Working with pools:
+  -cp, --create-pool    Starts an interactive shell
+  -lp, --list-pools     Pool list
+  -rp POOL, --remove-pool POOL
+                        Delete pool
 
-pools usage: backer [ -OPTIONS ] 
+Working with Backups:
+  -p NAME, --pool NAME  Pool name
+  -db name [name ...], --databases name [name ...]
+                        Spaced database names
+  -a, --all             Get all databases for user
+  -c, --clean           Auto clean backups history
+  -d DAYS, --days DAYS  History days to keep
+  --list-backups        Backup list
+  --list-db             Database list
 
- -ARGS:
-  -p, --pool: Pool name
-  -db, --databases: Database names as follows -> name or "name1 name2" 
+Restore (requires -p and -db):
+  -r, --restore         Restore backup
 
- -OPTIONS:
-  -cp, --create-pool: Starts an interactive bash
-  -lp, --list-pools: To get a list of pools
-  -rp, --remove-pool: To remove a pool
-  --list-db: List pool databases when used with --pool
-  --list-backups: List database backups when used with -p and -db
-  --clean: To clean a specified database or a list (-db "name1 name2")
-  --restore: Interactive shell for restoring database when used with -p and -db
-  -d, --days: if --clean is passed will set the last days to keep at cleaning
 ```

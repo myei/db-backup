@@ -319,7 +319,7 @@ class Backup:
         backups.add_argument('-p', '--pool', dest='pool_', metavar='NAME', help='Pool name')
 
         _backups = backups.add_mutually_exclusive_group()
-        _backups.add_argument('-db', '--databases', dest='make', nargs='+', metavar='db', help='Spaced database names')
+        _backups.add_argument('-db', '--databases', dest='make', nargs='+', metavar='name', help='Spaced database names')
         _backups.add_argument('-a', '--all', dest='make', action='store_true', help='Get all databases for user')
 
         backups.add_argument('-c', '--clean', dest='z_cleaner', action='store_true', help='Auto clean backups history')
