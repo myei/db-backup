@@ -6,7 +6,7 @@ from textwrap import wrap
 from uuid import uuid4
 from blessings import Terminal
 from shutil import rmtree
-from subprocess import getoutput as go
+from subprocess import getoutput as go, getstatusoutput as gso
 from argparse import ArgumentParser
 from pickle import dump, load
 from os import system, path, remove
@@ -150,7 +150,16 @@ class Backup:
             exit(2)
 
     def _set_databases(self, db):
-        self.db = db if type(db) == list else [i.split(' ')[0] for i in go([self.defs['engines'][self.pool['engine']]['get_db'].format(**self.pool)]).split('\n')]
+        get_db = gso([self.defs['engines'][self.pool['engine']]['get_db'].format(**self.pool)])
+
+        if get_db[0]:
+            open(self._log_path, 'a').write(get_db[1] + '\n')
+            print(t.red('Error trying to connect to {}, check logs on {}'.format(self.pool['engine'], self._log_path)))
+
+            exit(1)
+        else:
+            self.db = db if type(db) == list else [i.split(' ')[0] for i in get_db[1].split('\n')]
+            
 
     def make(self):
         for db in self.db:
@@ -184,15 +193,18 @@ class Backup:
             print(t.blue(go(['ls {}{} | sort'.format(self.pool_path, self.pool['name'])])))
 
     def list_backs(self):
-        for db in self.db:
-            if go(['ls {}{}{} | sort | wc -l'.format(self.pool_path, self.pool['name'], db)]) == '0':
-                print(t.italic_yellow('There is no backups yet...'))
-            else:
-                backups = go(['ls {}{}/{} | sort | nl'.format(self.pool_path, self.pool['name'], db)])
-                print(t.cyan('\n{}'.format(backups)))
+        if self.db:
+            for db in self.db:
+                if go(['ls {}{}{} | sort | wc -l'.format(self.pool_path, self.pool['name'], db)]) == '0':
+                    print(t.italic_yellow('There is no backups yet...'))
+                else:
+                    backups = go(['ls {}{}/{} | sort | nl'.format(self.pool_path, self.pool['name'], db)])
+                    print(t.cyan('\n{}'.format(backups)))
 
-                if len(self.db) == 1:
-                    return [i.split('\t')[1] for i in backups.split('\n')]
+                    if len(self.db) == 1:
+                        return [i.split('\t')[1] for i in backups.split('\n')]
+        else:
+            self._args.print_help()
 
     def create_pool(self):
         try:
@@ -336,7 +348,7 @@ class Backup:
     def _args_builder(self):
         self._set_args()
 
-        if self.args.pool_ or self.args.remove_pool or self.args.make:
+        if self.args.pool_ or self.args.remove_pool or self.args.make or self.args.restore:
             self._set_pool(self.args.pool_ or self.args.remove_pool)
 
             if self.args.make:
