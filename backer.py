@@ -318,16 +318,16 @@ class Backup:
         print(t.blue('\nDatabases cleaned...'))
 
     def _set_args(self):
-        raw_args = ArgumentParser(description='This script handles backup/restore/auto-cleaning for multiple '
-                                              'database engines')
+        self._args = ArgumentParser(description='This script handles backup/restore/auto-cleaning for multiple'
+                                                ' database engines')
 
-        pools = raw_args.add_argument_group('Working with pools')
+        pools = self._args.add_argument_group('Working with pools')
         _pools = pools.add_mutually_exclusive_group()
         _pools.add_argument('-cp', '--create-pool', dest='create_pool', action='store_true', help='Starts an interactive shell')
         _pools.add_argument('-lp', '--list-pools', dest='list_pool', action='store_true', help='Pool list')
         _pools.add_argument('-rp', '--remove-pool', dest='remove_pool', metavar='POOL', help='Delete pool')
 
-        backups = raw_args.add_argument_group('Working with Backups')
+        backups = self._args.add_argument_group('Working with Backups')
         backups.add_argument('-p', '--pool', dest='pool_', metavar='NAME', help='Pool name')
 
         _backups = backups.add_mutually_exclusive_group()
@@ -339,11 +339,12 @@ class Backup:
         backups.add_argument('--list-backups', dest='list_backs', action='store_true', help='Backup list')
         backups.add_argument('--list-db', dest='list_db', action='store_true', help='Database list')
 
-        restore = raw_args.add_argument_group('Restore (requires -p and -db)')
+        restore = self._args.add_argument_group('Restore (requires -p and -db)')
         restore.add_argument('-r', '--restore', dest='restore', action='store_true', help='Restore backup')
+
+        self._args.add_argument('-v', '--version', action='version', version='%(prog)s 2.0', help='Shows script version')
         
-        self._args = raw_args
-        self.args = raw_args.parse_args()
+        self.args = self._args.parse_args()
 
     def _args_builder(self):
         self._set_args()
