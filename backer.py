@@ -159,7 +159,6 @@ class Backup:
             exit(1)
         else:
             self.db = db if type(db) == list else [i.split(' ')[0] for i in get_db[1].split('\n')]
-            
 
     def make(self):
         for db in self.db:
@@ -187,6 +186,10 @@ class Backup:
             print(t.blue(go(['ls ' + Backup.pool_path + ' | grep .pkl | cut -f 1 -d "." | sort'])))
 
     def list_db(self):
+        if not 'name' in self.pool:
+            self._args.print_help()
+            exit(1)
+
         if go(['ls {}{} | wc -l'.format(self.pool_path, self.pool['name'])]) == '0':
             print(t.italic_yellow('There is no databases in this pool yet...'))
         else:
@@ -294,7 +297,11 @@ class Backup:
             print(t.red('This field is required'))
             exit(2)
 
-    def z_cleaner(self):
+    def cleaner(self):
+        if not self.db:
+            self._args.print_help()
+            exit()
+
         print()
         for db in self.db:
             _path = self.pool_path + self.pool['name'] + '/' + db + '/'
@@ -331,19 +338,19 @@ class Backup:
         backups.add_argument('-p', '--pool', dest='pool_', metavar='NAME', help='Pool name')
 
         _backups = backups.add_mutually_exclusive_group()
-        _backups.add_argument('-db', '--databases', dest='make', nargs='+', metavar='name', help='Spaced database names')
-        _backups.add_argument('-a', '--all', dest='make', action='store_true', help='Get all databases for user')
+        _backups.add_argument('-db', '--databases', dest='make', nargs='+', metavar='name', help='Spaced database names (requires -p)')
+        _backups.add_argument('-a', '--all', dest='make', action='store_true', help='Get all databases for user (requires -p)')
 
-        backups.add_argument('-c', '--clean', dest='z_cleaner', action='store_true', help='Auto clean backups history')
-        backups.add_argument('-d', '--days', dest='days', default=5, type=int, help='History days to keep')
-        backups.add_argument('--list-backups', dest='list_backs', action='store_true', help='Backup list')
-        backups.add_argument('--list-db', dest='list_db', action='store_true', help='Database list')
+        backups.add_argument('-c', '--clean', dest='cleaner', action='store_true', help='Auto clean backups history (requires -p and [-db | -a])')
+        backups.add_argument('-d', '--days', dest='days', default=5, type=int, help='History days to keep (requires -c)')
+        backups.add_argument('--list-backups', dest='list_backs', action='store_true', help='Backup list (requires -p and [-db | -a])')
+        backups.add_argument('--list-db', dest='list_db', action='store_true', help='Database list (requires -p)')
 
         restore = self._args.add_argument_group('Restore (requires -p and -db)')
         restore.add_argument('-r', '--restore', dest='restore', action='store_true', help='Restore backup')
 
         self._args.add_argument('-v', '--version', action='version', version='%(prog)s 2.0', help='Shows script version')
-        
+
         self.args = self._args.parse_args()
 
     def _args_builder(self):
@@ -362,4 +369,3 @@ t = Terminal()
 
 if __name__ == '__main__':
     Backup()
-
