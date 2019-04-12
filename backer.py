@@ -127,7 +127,7 @@ class Backup:
                 'backup': 'mongodump -h {host} --port {port} -d {db} -u {user} -p {psw} --gzip --authenticationDatabase'
                           ' "admin" --out {path}{db}_`date +%d-%m-%YT%H:%M:%S`.backup' + _log_errors,
                 'restore': 'mongorestore -h {host} --port {port} -d {db} -u {user} -p {psw} --drop --gzip '
-                           '--authenticationDatabase "admin" {backup}/{db}"' + _log_errors,
+                           '--authenticationDatabase "admin" {backup}/{db}' + _log_errors,
                 'get_db': 'echo "show databases;" | mongo --host {host} --port {port} -u {user} -p {psw}'
                           ' --authenticationDatabase admin | grep GB | grep -Ev "admin|local|config"' + _log_errors
             },
