@@ -1,11 +1,11 @@
 # db-backup (backer)
 
-Script written in Python3 for database management that can do the following:
+Easy-To-Use script written in Python3 for database management that can do the following:
 
 * Backup
 * Restore
 * Daily parameterizable backup files cleaning
-* Account storage
+* Encrypted accounts storage
 
 Can work with:
 
