@@ -1,5 +1,17 @@
 # db-backup (backer)
-Script en python3 para gestionar backups y restore con auto-limpieza parametrizable de varios manejadores de Base de Datos (MySQL, PostgreSQL, MongoDB *por ahora)
+
+Script written in Python3 for database management that can do the following:
+
+* Backup
+* Restore
+* Daily parameterizable backup files cleaning
+* Account storage
+
+Can work with:
+
+* MySQL
+* PostgreSQL
+* MongoDB
 
 ```
 usage: backer [-h] [-cp | -lp | -rp POOL] [-p NAME] [-db name [name ...] | -a]
