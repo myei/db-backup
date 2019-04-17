@@ -44,3 +44,10 @@ Restore (requires -p and -db):
   -r, --restore         Restore backup
 
 ```
+
+> In order to avoid security issues, it's highly recommended to obfuscate this script. I suggest to use ```pyminifier``` as follows:
+
+```
+pip3 install pyminifier
+pyminifier --pyz backer backer.py
+```
